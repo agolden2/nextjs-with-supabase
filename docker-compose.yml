@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  forge:
+    build: .
+    ports:
+      - "3100:3100"
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      # Uncomment to use external Postgres instead of PGlite:
+      # DATABASE_URL: postgres://user:pass@db:5432/forge
+    volumes:
+      - forge_data:/app/.forge
+
+  # Optional: external Postgres for production
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_DB: forge
+  #     POSTGRES_USER: forge
+  #     POSTGRES_PASSWORD: forge
+  #   volumes:
+  #     - pg_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+volumes:
+  forge_data:
+  # pg_data:

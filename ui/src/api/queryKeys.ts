@@ -1,0 +1,17 @@
+export const queryKeys = {
+  companies: () => ["companies"] as const,
+  company: (id: string) => ["companies", id] as const,
+  agents: (companyId?: string) => ["agents", companyId] as const,
+  agent: (id: string) => ["agents", id] as const,
+  org: (companyId: string) => ["org", companyId] as const,
+  issues: (filters?: Record<string, string>) => ["issues", filters] as const,
+  issue: (id: string) => ["issues", id] as const,
+  projects: (companyId?: string) => ["projects", companyId] as const,
+  project: (id: string) => ["projects", id] as const,
+  goals: (companyId?: string) => ["goals", companyId] as const,
+  goal: (id: string) => ["goals", id] as const,
+  approvals: (companyId?: string, status?: string) => ["approvals", companyId, status] as const,
+  costs: (companyId?: string) => ["costs", companyId] as const,
+  activity: (companyId?: string) => ["activity", companyId] as const,
+  heartbeatRuns: (agentId?: string) => ["heartbeatRuns", agentId] as const,
+};
