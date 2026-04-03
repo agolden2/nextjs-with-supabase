@@ -1,8 +1,8 @@
 import { pgTable, uuid, text, integer, varchar, timestamp } from "drizzle-orm/pg-core";
-import { companies } from "./companies.js";
-import { agents } from "./agents.js";
-import { projects } from "./projects.js";
-import { goals } from "./goals.js";
+import { companies } from "./companies";
+import { agents } from "./agents";
+import { projects } from "./projects";
+import { goals } from "./goals";
 
 export const issues = pgTable("issues", {
   id: uuid("id").defaultRandom().primaryKey(),
