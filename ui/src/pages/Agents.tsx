@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCompanyContext } from "../context/CompanyContext.js";
 import { useAgents, usePauseAgent, useResumeAgent } from "../api/agents.js";
+import CreateAgentModal from "../components/CreateAgentModal.js";
 import type { Agent } from "@forge/shared/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -16,19 +18,54 @@ export default function Agents() {
   const { data: agents = [], isLoading } = useAgents(activeCompany?.id);
   const pauseAgent = usePauseAgent();
   const resumeAgent = useResumeAgent();
+  const [showCreate, setShowCreate] = useState(false);
 
   return (
     <div style={{ padding: "24px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Agents</h1>
         <span style={{ color: "var(--color-muted)", fontSize: 13 }}>{agents.length}</span>
+        <div style={{ marginLeft: "auto" }}>
+          <button
+            onClick={() => setShowCreate(true)}
+            disabled={!activeCompany}
+            style={{
+              background: "var(--color-accent)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "5px 12px",
+              fontSize: 13,
+              cursor: "pointer",
+              fontWeight: 500,
+            }}
+          >
+            + New agent
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
         <div style={{ color: "var(--color-muted)" }}>Loading…</div>
       ) : agents.length === 0 ? (
         <div style={{ color: "var(--color-muted)", textAlign: "center", padding: 48 }}>
-          No agents yet.
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🤖</div>
+          <div>No agents yet.</div>
+          <button
+            onClick={() => setShowCreate(true)}
+            style={{
+              marginTop: 12,
+              background: "var(--color-accent)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "7px 16px",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            Create your first agent
+          </button>
         </div>
       ) : (
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
@@ -42,6 +79,13 @@ export default function Agents() {
             />
           ))}
         </div>
+      )}
+
+      {showCreate && activeCompany && (
+        <CreateAgentModal
+          companyId={activeCompany.id}
+          onClose={() => setShowCreate(false)}
+        />
       )}
     </div>
   );
@@ -147,14 +191,7 @@ function AgentCard({
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--color-muted)",
-          }}
-        >
-          {agent.adapterType}
-        </span>
+        <span style={{ fontSize: 11, color: "var(--color-muted)" }}>{agent.adapterType}</span>
         <button
           onClick={(e) => {
             e.stopPropagation();

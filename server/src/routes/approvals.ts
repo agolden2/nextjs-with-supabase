@@ -2,6 +2,9 @@ import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { approvals } from "@forge/db/schema";
 import { getDb } from "@forge/db/client";
+import { broadcast } from "../realtime/ws-server.js";
+import { makeEvent } from "../realtime/events.js";
+import { logActivity } from "../services/activity.js";
 import { z } from "zod";
 
 const router = Router();
@@ -45,6 +48,16 @@ router.post("/", async (req, res, next) => {
     const db = getDb();
     const input = createApprovalSchema.parse(req.body);
     const [created] = await db.insert(approvals).values(input as any).returning();
+
+    broadcast(makeEvent("approval:created", created.companyId, created));
+    logActivity({
+      companyId: created.companyId,
+      entityType: "approval",
+      entityId: created.id,
+      action: "created",
+      after: created as any,
+    });
+
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -70,6 +83,16 @@ router.post("/:id/approve", async (req, res, next) => {
       res.status(409).json({ error: "Approval not found or not pending" });
       return;
     }
+
+    broadcast(makeEvent("approval:resolved", updated.companyId, updated));
+    logActivity({
+      companyId: updated.companyId,
+      entityType: "approval",
+      entityId: updated.id,
+      action: "approved",
+      after: { reviewedByUserId } as any,
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -95,6 +118,16 @@ router.post("/:id/reject", async (req, res, next) => {
       res.status(409).json({ error: "Approval not found or not pending" });
       return;
     }
+
+    broadcast(makeEvent("approval:resolved", updated.companyId, updated));
+    logActivity({
+      companyId: updated.companyId,
+      entityType: "approval",
+      entityId: updated.id,
+      action: "rejected",
+      after: { reviewedByUserId } as any,
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);

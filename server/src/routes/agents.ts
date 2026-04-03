@@ -3,6 +3,9 @@ import { eq, and } from "drizzle-orm";
 import { agents } from "@forge/db/schema";
 import { createAgentSchema, updateAgentSchema } from "@forge/shared/validators";
 import { getDb } from "@forge/db/client";
+import { broadcast } from "../realtime/ws-server.js";
+import { makeEvent } from "../realtime/events.js";
+import { logActivity } from "../services/activity.js";
 
 const router = Router();
 
@@ -45,6 +48,16 @@ router.post("/", async (req, res, next) => {
     const db = getDb();
     const input = createAgentSchema.parse(req.body);
     const [created] = await db.insert(agents).values(input).returning();
+
+    broadcast(makeEvent("agent:updated", created.companyId, created));
+    logActivity({
+      companyId: created.companyId,
+      entityType: "agent",
+      entityId: created.id,
+      action: "created",
+      after: created as any,
+    });
+
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -65,6 +78,16 @@ router.patch("/:id", async (req, res, next) => {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+
+    broadcast(makeEvent("agent:updated", updated.companyId, updated));
+    logActivity({
+      companyId: updated.companyId,
+      entityType: "agent",
+      entityId: updated.id,
+      action: "updated",
+      after: updated as any,
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -84,6 +107,15 @@ router.post("/:id/pause", async (req, res, next) => {
       res.status(409).json({ error: "Agent not found or not active" });
       return;
     }
+
+    broadcast(makeEvent("agent:updated", updated.companyId, updated));
+    logActivity({
+      companyId: updated.companyId,
+      entityType: "agent",
+      entityId: updated.id,
+      action: "paused",
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -103,6 +135,15 @@ router.post("/:id/resume", async (req, res, next) => {
       res.status(409).json({ error: "Agent not found or not paused" });
       return;
     }
+
+    broadcast(makeEvent("agent:updated", updated.companyId, updated));
+    logActivity({
+      companyId: updated.companyId,
+      entityType: "agent",
+      entityId: updated.id,
+      action: "resumed",
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -113,7 +154,21 @@ router.post("/:id/resume", async (req, res, next) => {
 router.delete("/:id", async (req, res, next) => {
   try {
     const db = getDb();
-    await db.delete(agents).where(eq(agents.id, req.params.id));
+    const [deleted] = await db
+      .delete(agents)
+      .where(eq(agents.id, req.params.id))
+      .returning();
+
+    if (deleted) {
+      broadcast(makeEvent("agent:updated", deleted.companyId, { id: deleted.id, deleted: true }));
+      logActivity({
+        companyId: deleted.companyId,
+        entityType: "agent",
+        entityId: deleted.id,
+        action: "deleted",
+      });
+    }
+
     res.status(204).send();
   } catch (err) {
     next(err);

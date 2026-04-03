@@ -7,6 +7,9 @@ import {
   bulkUpdateIssuesSchema,
 } from "@forge/shared/validators";
 import { getDb } from "@forge/db/client";
+import { broadcast } from "../realtime/ws-server.js";
+import { makeEvent } from "../realtime/events.js";
+import { logActivity } from "../services/activity.js";
 
 const router = Router();
 
@@ -76,6 +79,16 @@ router.post("/", async (req, res, next) => {
       .insert(issues)
       .values({ ...input, number })
       .returning();
+
+    broadcast(makeEvent("issue:created", created.companyId, created));
+    logActivity({
+      companyId: created.companyId,
+      entityType: "issue",
+      entityId: created.id,
+      action: "created",
+      after: created as any,
+    });
+
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -87,6 +100,9 @@ router.patch("/:id", async (req, res, next) => {
   try {
     const db = getDb();
     const input = updateIssueSchema.parse(req.body);
+
+    const [before] = await db.select().from(issues).where(eq(issues.id, req.params.id));
+
     const [updated] = await db
       .update(issues)
       .set({ ...input, updatedAt: new Date() })
@@ -96,6 +112,17 @@ router.patch("/:id", async (req, res, next) => {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
+
+    broadcast(makeEvent("issue:updated", updated.companyId, updated));
+    logActivity({
+      companyId: updated.companyId,
+      entityType: "issue",
+      entityId: updated.id,
+      action: "updated",
+      before: before as any,
+      after: updated as any,
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -120,15 +147,23 @@ router.post("/:id/checkout", async (req, res, next) => {
         status: "in_progress",
         updatedAt: new Date(),
       })
-      .where(
-        and(eq(issues.id, req.params.id), isNull(issues.checkoutRunId))
-      )
+      .where(and(eq(issues.id, req.params.id), isNull(issues.checkoutRunId)))
       .returning();
 
     if (!updated) {
       res.status(409).json({ error: "Issue already checked out" });
       return;
     }
+
+    broadcast(makeEvent("issue:updated", updated.companyId, updated));
+    logActivity({
+      companyId: updated.companyId,
+      entityType: "issue",
+      entityId: updated.id,
+      action: "checked_out",
+      after: { runId } as any,
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -154,6 +189,16 @@ router.post("/:id/checkin", async (req, res, next) => {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
+
+    broadcast(makeEvent("issue:updated", updated.companyId, updated));
+    logActivity({
+      companyId: updated.companyId,
+      entityType: "issue",
+      entityId: updated.id,
+      action: "checked_in",
+      after: { status } as any,
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -170,6 +215,20 @@ router.post("/bulk", async (req, res, next) => {
       .set({ ...updates, updatedAt: new Date() })
       .where(inArray(issues.id, issueIds))
       .returning();
+
+    for (const issue of updated) {
+      broadcast(makeEvent("issue:updated", issue.companyId, issue));
+    }
+    if (updated[0]) {
+      logActivity({
+        companyId: updated[0].companyId,
+        entityType: "issue",
+        entityId: "bulk",
+        action: "bulk_updated",
+        after: { issueIds, updates } as any,
+      });
+    }
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -180,7 +239,21 @@ router.post("/bulk", async (req, res, next) => {
 router.delete("/:id", async (req, res, next) => {
   try {
     const db = getDb();
-    await db.delete(issues).where(eq(issues.id, req.params.id));
+    const [deleted] = await db
+      .delete(issues)
+      .where(eq(issues.id, req.params.id))
+      .returning();
+
+    if (deleted) {
+      broadcast(makeEvent("issue:deleted", deleted.companyId, { id: deleted.id }));
+      logActivity({
+        companyId: deleted.companyId,
+        entityType: "issue",
+        entityId: deleted.id,
+        action: "deleted",
+      });
+    }
+
     res.status(204).send();
   } catch (err) {
     next(err);
