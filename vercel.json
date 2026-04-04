@@ -1,1 +1,6 @@
-{}
+{
+  "buildCommand": "pnpm --filter @forge/ui build",
+  "outputDirectory": "ui/dist",
+  "installCommand": "pnpm install",
+  "framework": null
+}
