@@ -10,5 +10,8 @@
     "db:generate": "pnpm --filter @forge/db generate",
     "db:migrate": "pnpm --filter @forge/db migrate",
     "test": "pnpm -r run test"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
